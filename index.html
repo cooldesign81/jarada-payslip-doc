@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>급여·인센티브 문서 생성기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&family=Source+Serif+4:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --paper:#FAF7F0;
+    --panel:#FFFFFF;
+    --ink:#232323;
+    --ink-soft:#6B6558;
+    --line:#DCD5C4;
+    --line-strong:#B9AF97;
+    --brass:#B8892B;
+    --brass-soft:#F3E3BE;
+    --stamp:#8E2F2F;
+    --stamp-soft:#F4DCDC;
+    --sidebar:#211D18;
+    --sidebar-soft:#3A342A;
+    --sidebar-text:#EDE7D9;
+    --shadow: 0 18px 40px -20px rgba(30,25,10,0.35);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Noto Sans KR', -apple-system, sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    min-height:100vh;
+  }
+  #app{ display:flex; min-height:100vh; }
+
+  /* ---------- SIDEBAR ---------- */
+  .sidebar{
+    width:300px; min-width:300px;
+    background: linear-gradient(180deg, var(--sidebar), var(--sidebar-soft) 140%);
+    color:var(--sidebar-text);
+    display:flex; flex-direction:column;
+    padding:28px 20px 20px;
+  }
+  .brand{
+    font-family:'Source Serif 4', serif;
+    font-size:20px; font-weight:700;
+    letter-spacing:0.02em;
+    display:flex; align-items:baseline; gap:8px;
+    margin-bottom:2px;
+  }
+  .brand small{
+    font-family:'Noto Sans KR',sans-serif;
+    font-size:11px; font-weight:500;
+    color:#B8AC8C;
+    letter-spacing:0.06em;
+  }
+  .brand-rule{ height:1px; background:rgba(237,231,217,0.18); margin:16px 0 18px; }
+
+  .tabbar{ display:flex; gap:6px; margin-bottom:20px; background:rgba(0,0,0,0.18); padding:4px; border-radius:10px; }
+  .tabbtn{
+    flex:1; text-align:center; padding:9px 6px; border-radius:7px; cursor:pointer;
+    font-size:13px; font-weight:600; color:#C9BFA5; transition:all .18s ease; user-select:none;
+    border:none; background:transparent; font-family:inherit;
+  }
+  .tabbtn.active{ background:var(--brass); color:#241C08; box-shadow:0 4px 12px rgba(0,0,0,0.3); }
+
+  .upload-box{
+    border:1.5px dashed rgba(237,231,217,0.35); border-radius:12px; padding:16px;
+    margin-bottom:18px; text-align:center;
+  }
+  .upload-box p{ font-size:12px; color:#B8AC8C; margin:0 0 10px; line-height:1.55; }
+  .upload-btn{
+    display:inline-block; background:var(--brass); color:#241C08; font-weight:700; font-size:13px;
+    padding:9px 16px; border-radius:8px; cursor:pointer; border:none; font-family:inherit;
+  }
+  .upload-btn:hover{ filter:brightness(1.08); }
+  .file-input{ display:none; }
+  .file-status{ font-size:11.5px; color:#9BE8B4; margin-top:8px; word-break:break-all; }
+  .file-status.empty{ color:#8A8064; }
+
+  .list-label{ font-size:11px; letter-spacing:0.08em; color:#8A8064; margin:6px 2px 8px; text-transform:uppercase; font-weight:700; }
+  .doc-list{ flex:1; overflow-y:auto; margin:0 -6px; padding:0 6px; }
+  .doc-item{
+    display:flex; align-items:center; gap:10px; padding:10px 10px; border-radius:9px; cursor:pointer;
+    margin-bottom:3px; transition:background .15s ease;
+  }
+  .doc-item:hover{ background:rgba(237,231,217,0.08); }
+  .doc-item.active{ background:rgba(184,137,43,0.22); }
+  .doc-badge{
+    width:28px; height:28px; border-radius:7px; background:rgba(237,231,217,0.1); color:#D8CDAE;
+    display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0;
+  }
+  .doc-item.active .doc-badge{ background:var(--brass); color:#241C08; }
+  .doc-name{ font-size:13.5px; font-weight:600; color:#EDE7D9; }
+  .doc-sub{ font-size:11px; color:#9C9174; margin-top:1px; }
+
+  .ref-item{
+    margin-top:10px; padding:10px 12px; border-radius:9px; cursor:pointer; border:1px solid rgba(237,231,217,0.15);
+  }
+  .ref-item:hover, .ref-item.active{ background:rgba(237,231,217,0.08); }
+  .ref-item .doc-name{ font-size:12.5px; }
+
+  .empty-hint{ font-size:12px; color:#8A8064; text-align:center; padding:30px 10px; line-height:1.7; }
+
+  /* ---------- MAIN ---------- */
+  .main{ flex:1; display:flex; flex-direction:column; min-width:0; }
+  .toolbar{
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+    padding:18px 36px; background:var(--panel); border-bottom:1px solid var(--line);
+  }
+  .toolbar h1{ font-size:17px; margin:0; font-weight:700; }
+  .toolbar .sub{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+  .toolbar-actions{ display:flex; align-items:center; gap:10px; }
+
+  .fmt-toggle{ display:flex; background:var(--paper); border:1px solid var(--line-strong); border-radius:8px; overflow:hidden; }
+  .fmt-toggle button{
+    border:none; background:transparent; padding:8px 14px; font-size:12.5px; font-weight:600; cursor:pointer;
+    font-family:inherit; color:var(--ink-soft);
+  }
+  .fmt-toggle button.active{ background:var(--ink); color:#fff; }
+
+  .btn{
+    border:none; border-radius:8px; padding:9px 16px; font-size:13px; font-weight:700; cursor:pointer;
+    font-family:inherit; display:inline-flex; align-items:center; gap:6px;
+  }
+  .btn-primary{ background:var(--brass); color:#241C08; }
+  .btn-primary:hover{ filter:brightness(1.06); }
+  .btn-ghost{ background:transparent; color:var(--ink); border:1px solid var(--line-strong); }
+  .btn-ghost:hover{ background:var(--brass-soft); }
+  .btn:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  .canvas-area{ flex:1; overflow-y:auto; padding:40px; display:flex; justify-content:center; align-items:flex-start; }
+  .canvas-area.empty{ align-items:center; }
+
+  .placeholder{ text-align:center; color:var(--ink-soft); max-width:360px; }
+  .placeholder .big{ font-size:44px; margin-bottom:14px; }
+  .placeholder h2{ font-size:16px; color:var(--ink); margin:0 0 8px; }
+  .placeholder p{ font-size:13px; line-height:1.7; margin:0; }
+
+  /* ---------- DOCUMENT PAGE (payslip look) ---------- */
+  .page-wrap{ box-shadow:var(--shadow); }
+  .page{
+    width:760px; background:#fff; padding:44px 46px 38px;
+    font-family:'Noto Sans KR', sans-serif; color:#1a1a1a;
+  }
+  .doc-title{ text-align:center; font-size:21px; font-weight:900; letter-spacing:0.01em; margin-bottom:20px; }
+  .doc-meta{ display:flex; justify-content:space-between; font-size:13px; margin-bottom:2px; padding:2px 2px; }
+  .doc-meta b{ font-weight:700; margin-right:6px; }
+  .info-table{ width:100%; border-collapse:collapse; margin:10px 0 4px; font-size:13px; }
+  .info-table td{ border:1px solid #333; padding:6px 10px; }
+  .info-table td.lbl{ background:#F2EFE6; font-weight:700; width:110px; }
+  .unit-note{ text-align:right; font-size:11.5px; color:#555; margin:4px 2px 8px; }
+
+  .sec-bar{ background:#2b2b2b; color:#fff; text-align:center; font-weight:700; font-size:13px; padding:6px; }
+  table.grid{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  table.grid th{ border:1px solid #333; background:#EFEAD9; padding:6px 8px; font-weight:700; }
+  table.grid td{ border:1px solid #333; padding:5px 8px; }
+  table.grid td.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  table.grid tr.total td{ background:var(--stamp-soft); font-weight:800; }
+  table.grid tr.subtotal td{ background:#F2EFE6; font-weight:700; }
+
+  .footer-note{ text-align:center; font-size:12px; color:#444; margin-top:22px; }
+
+  /* incentive doc styles */
+  .inc-title{ background:var(--brass-soft); border:1px solid #333; padding:7px 10px; font-weight:800; font-size:13.5px; margin-bottom:0; }
+  .inc-row{ display:flex; border:1px solid #333; border-top:none; font-size:12.5px; }
+  .inc-row .idx{ width:34px; background:var(--brass-soft); display:flex; align-items:center; justify-content:center; font-weight:700; border-right:1px solid #333; padding:5px 0; }
+  .inc-row .lbl{ flex:1; padding:5px 10px; display:flex; align-items:center; }
+  .inc-row .val{ width:180px; text-align:right; padding:5px 12px; display:flex; align-items:center; justify-content:flex-end; font-variant-numeric:tabular-nums; border-left:1px solid #333; }
+  .inc-row.emphasis{ background:var(--stamp-soft); font-weight:800; }
+  .inc-section{ background:#3a3a3a; color:#fff; font-weight:700; text-align:center; padding:6px; font-size:12.5px; border:1px solid #333; border-top:none; }
+  .inc-formula{ font-size:11.5px; color:#555; padding:5px 4px; border:1px solid #333; border-top:none; font-style:italic; }
+  .inc-listhead{ background:var(--brass-soft); font-weight:700; display:flex; border:1px solid #333; border-top:none; font-size:12.5px; }
+  .inc-listhead .no{ width:34px; text-align:center; padding:5px 0; border-right:1px solid #333; }
+  .inc-listhead .t{ flex:1; padding:5px 10px; }
+  .inc-blockgap{ height:14px; }
+
+  .ref-table{ width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:16px; }
+  .ref-table td, .ref-table th{ border:1px solid #999; padding:4px 7px; }
+  .ref-table th{ background:#EFEAD9; }
+
+  @media (max-width:900px){
+    .sidebar{ display:none; }
+    .page{ width:100%; padding:26px 18px; }
+    .toolbar{ padding:14px 18px; flex-wrap:wrap; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <aside class="sidebar">
+    <div class="brand">제이드에듀 <small>DOC STUDIO</small></div>
+    <div style="font-size:11px;color:#8A8064;">급여·인센티브 문서 생성기</div>
+    <div class="brand-rule"></div>
+
+    <div class="tabbar">
+      <button class="tabbtn active" data-tab="payroll">급여명세서</button>
+      <button class="tabbtn" data-tab="incentive">인센티브 내역</button>
+    </div>
+
+    <div id="payrollPanel">
+      <div class="upload-box">
+        <p>급여명세서 엑셀 파일을 올려주세요.<br>(직원별 명세서가 이어진 시트 1개)</p>
+        <label class="upload-btn">파일 선택
+          <input type="file" class="file-input" id="payrollFile" accept=".xlsx,.xls">
+        </label>
+        <div class="file-status empty" id="payrollFileStatus">업로드된 파일 없음</div>
+      </div>
+      <div class="list-label">직원 목록</div>
+      <div class="doc-list" id="payrollList"><div class="empty-hint">엑셀을 업로드하면<br>직원별 명세서가 여기에 나타나요.</div></div>
+    </div>
+
+    <div id="incentivePanel" style="display:none;">
+      <div class="upload-box">
+        <p>인센티브 엑셀 파일을 올려주세요.<br>(암호가 걸려 있다면 미리 풀어서 업로드)</p>
+        <label class="upload-btn">파일 선택
+          <input type="file" class="file-input" id="incentiveFile" accept=".xlsx,.xls">
+        </label>
+        <div class="file-status empty" id="incentiveFileStatus">업로드된 파일 없음</div>
+      </div>
+      <div class="list-label">직원 목록</div>
+      <div class="doc-list" id="incentiveList"><div class="empty-hint">엑셀을 업로드하면<br>직원별 인센티브 내역이 여기에 나타나요.</div></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="toolbar">
+      <div>
+        <h1 id="docHeading">문서를 선택해주세요</h1>
+        <div class="sub" id="docSub">왼쪽에서 엑셀을 업로드하고 직원을 선택하세요</div>
+      </div>
+      <div class="toolbar-actions">
+        <div class="fmt-toggle">
+          <button id="fmtPdf" class="active">PDF</button>
+          <button id="fmtImg">이미지</button>
+        </div>
+        <button class="btn btn-ghost" id="btnDownloadAll" disabled>전체 ZIP 다운로드</button>
+        <button class="btn btn-primary" id="btnDownloadOne" disabled>다운로드</button>
+      </div>
+    </div>
+    <div class="canvas-area empty" id="canvasArea">
+      <div class="placeholder">
+        <div class="big">🗂️</div>
+        <h2>아직 표시할 문서가 없어요</h2>
+        <p>왼쪽 사이드바에서 급여명세서 또는 인센티브 엑셀 파일을 업로드하면, 직원별 문서를 이 화면에서 확인하고 PDF나 이미지로 내려받을 수 있어요.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================= STATE ============================= */
+const state = {
+  activeTab: 'payroll',
+  format: 'pdf',
+  payroll: { docs: [], selected: -1, fileName: '' },
+  incentive: { docs: [], reference: null, selected: -1, fileName: '' },
+};
+
+/* ============================= UTIL ============================= */
+function normLabel(v){ return (v===undefined||v===null) ? '' : String(v).replace(/\s+/g,''); }
+function isEmpty(v){ return v===undefined || v===null || String(v).trim()===''; }
+function fmtNum(v){
+  if(v===undefined||v===null||v==='') return '';
+  const n = Number(v);
+  if(isNaN(n)) return String(v);
+  return n.toLocaleString('ko-KR');
+}
+function cell(row, idx){ return row && row[idx]!==undefined ? row[idx] : null; }
+function findColRight(row, matchers){
+  // matchers: array of exact-normalized strings to find in row; returns first non-empty cell AFTER match
+  for(let i=0;i<row.length;i++){
+    const n = normLabel(row[i]);
+    if(matchers.includes(n)){
+      for(let j=i+1;j<row.length;j++){
+        if(!isEmpty(row[j])) return row[j];
+      }
+      return null;
+    }
+  }
+  return null;
+}
+function findRowIndex(rows, matchers, start=0){
+  for(let r=start;r<rows.length;r++){
+    const row = rows[r] || [];
+    for(let i=0;i<row.length;i++){
+      if(matchers.includes(normLabel(row[i]))) return r;
+    }
+  }
+  return -1;
+}
+function findRowIndexContains(rows, substr, start=0){
+  for(let r=start;r<rows.length;r++){
+    const row = rows[r] || [];
+    for(let i=0;i<row.length;i++){
+      if(!isEmpty(row[i]) && String(row[i]).includes(substr)) return r;
+    }
+  }
+  return -1;
+}
+
+/* ============================= PAYROLL PARSER ============================= */
+function parsePayrollWorkbook(wb){
+  const sheetName = wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+
+  // find all block start rows (contain "급여명세서")
+  const starts = [];
+  rows.forEach((row,i)=>{
+    if(row && row.some(v => !isEmpty(v) && String(v).includes('급여명세서'))) starts.push(i);
+  });
+
+  const docs = [];
+  starts.forEach((s, bi)=>{
+    const e = (bi+1<starts.length) ? starts[bi+1] : rows.length;
+    const block = rows.slice(s,e);
+    docs.push(parsePayrollBlock(block));
+  });
+  return docs;
+}
+
+function parsePayrollBlock(block){
+  const titleRow = block.find(r => r && r.some(v=>!isEmpty(v) && String(v).includes('급여명세서')));
+  const title = titleRow ? titleRow.find(v=>!isEmpty(v)) : '급여명세서';
+
+  const companyRowIdx = findRowIndex(block, ['회사명:']);
+  let company='', payDate='';
+  if(companyRowIdx>-1){
+    const row = block[companyRowIdx];
+    company = findColRight(row, ['회사명:']) || '';
+    payDate = findColRight(row, ['지급일:']) || '';
+  }
+
+  const nameRowIdx = findRowIndex(block, ['성명']);
+  let name='', birth='', empNo='';
+  if(nameRowIdx>-1){
+    const row = block[nameRowIdx];
+    name = findColRight(row, ['성명']) || '';
+    birth = findColRight(row, ['생년월일(사번)','생년월일']) || '';
+    // trailing paren token e.g. (7)
+    for(let i=row.length-1;i>=0;i--){
+      if(!isEmpty(row[i]) && String(row[i]).trim().startsWith('(')){ empNo = row[i]; break; }
+    }
+  }
+
+  const deptRowIdx = findRowIndex(block, ['부서']);
+  let dept='', position='';
+  if(deptRowIdx>-1){
+    const row = block[deptRowIdx];
+    dept = findColRight(row, ['부서']) || '';
+    position = findColRight(row, ['직급']) || '';
+  }
+
+  const colHeaderIdx = findRowIndex(block, ['구분']);
+  const dedTotalIdx = findRowIndexContains(block, '제액계'.split('').join(''), colHeaderIdx+1) > -1
+      ? findRowIdxSpaceTolerant(block, '공제액계', colHeaderIdx+1)
+      : findRowIdxSpaceTolerant(block, '공제액계', colHeaderIdx+1);
+
+  const payItems=[], deductionItems=[];
+  if(colHeaderIdx>-1){
+    const endIdx = dedTotalIdx>-1 ? dedTotalIdx : block.length;
+    for(let r=colHeaderIdx+1; r<endIdx; r++){
+      const row = block[r]||[];
+      const payName = row[1], payAmt = row[2];
+      const dedName = row[3], dedAmt = row[4];
+      if(!isEmpty(payName)) payItems.push({item:payName, amount:payAmt});
+      if(!isEmpty(dedName)) deductionItems.push({item:dedName, amount:dedAmt});
+    }
+  }
+
+  let dedTotal=null, payTotal=null, netPay=null;
+  if(dedTotalIdx>-1){
+    dedTotal = findColRight(block[dedTotalIdx], ['공제액계']);
+  }
+  const payTotalIdx = findRowIdxSpaceTolerant(block, '지급액계', (dedTotalIdx>-1?dedTotalIdx:colHeaderIdx)+1);
+  if(payTotalIdx>-1){
+    const row = block[payTotalIdx];
+    payTotal = findColRight(row, ['지급액계']);
+    netPay = findColRight(row, ['실지급액']);
+  }
+
+  // calc method table
+  const calcHeaderIdx = findRowIndex(block, ['계산방법'], (payTotalIdx>-1?payTotalIdx:0));
+  const calcColHeaderIdx = calcHeaderIdx>-1 ? findRowIndex(block, ['구분'], calcHeaderIdx+1) : -1;
+  const footerIdx = findRowIndexContains(block, '노고에 감사', 0);
+  const calcRows = [];
+  if(calcColHeaderIdx>-1){
+    const endIdx = footerIdx>-1 ? footerIdx : block.length;
+    for(let r=calcColHeaderIdx+1; r<endIdx; r++){
+      const row = block[r]||[];
+      if(!isEmpty(row[0]) || !isEmpty(row[1]) || !isEmpty(row[3])){
+        calcRows.push({label:row[0], method:row[1], amount:row[3]});
+      }
+    }
+  }
+
+  return {
+    type:'payroll', title, company, payDate, name, birth, empNo, dept, position,
+    payItems, deductionItems, dedTotal, payTotal, netPay, calcRows,
+    displayName: name || '이름미상'
+  };
+}
+function findRowIdxSpaceTolerant(rows, target, start){
+  for(let r=start; r<rows.length; r++){
+    const row = rows[r]||[];
+    for(let i=0;i<row.length;i++){
+      if(normLabel(row[i])===target) return r;
+    }
+  }
+  return -1;
+}
+
+/* ============================= INCENTIVE PARSER ============================= */
+function parseIncentiveWorkbook(wb){
+  const docs = [];
+  let reference = null;
+
+  wb.SheetNames.forEach(sheetName=>{
+    const ws = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+
+    if(sheetName.replace(/\s+/g,'').includes('요일별가중치')){
+      reference = { sheetName, rows };
+      return;
+    }
+
+    // try block A:C (col 0-2) and block E:G (col 4-6)
+    const blockDefs = [ {start:0}, {start:4} ];
+    blockDefs.forEach(bd=>{
+      const entries = extractIncentiveBlock(rows, bd.start);
+      if(entries){
+        docs.push(entries);
+      }
+    });
+  });
+
+  return { docs, reference };
+}
+
+function extractIncentiveBlock(rows, colStart){
+  // find first row with a non-empty value in [colStart..colStart+2] to use as title
+  let titleRowIdx=-1, titleText='';
+  for(let r=0;r<rows.length;r++){
+    const row = rows[r]||[];
+    const a=row[colStart], b=row[colStart+1], c=row[colStart+2];
+    if(!isEmpty(a) || !isEmpty(b) || !isEmpty(c)){
+      titleRowIdx = r;
+      titleText = !isEmpty(a) ? a : (!isEmpty(b) ? b : c);
+      break;
+    }
+  }
+  if(titleRowIdx===-1) return null;
+
+  // for any block other than the primary (left-most) one, only accept it if the
+  // title text really looks like a document title (e.g. "이름_직급_2026년7월"),
+  // otherwise stray reference notes placed in far-right columns (like a rate memo
+  // or a side note) would get mistaken for a second employee's data block.
+  if(colStart!==0 && !/\d{4}\s*년\s*\d{1,2}\s*월/.test(String(titleText))){
+    return null;
+  }
+
+  const items = [];
+  for(let r=titleRowIdx+1; r<rows.length; r++){
+    const row = rows[r]||[];
+    const a=row[colStart], b=row[colStart+1], c=row[colStart+2];
+    if(isEmpty(a) && isEmpty(b) && isEmpty(c)) continue; // spacer
+
+    const aStr = isEmpty(a) ? '' : String(a).trim();
+    const bStr = isEmpty(b) ? '' : String(b).trim();
+
+    if(aStr.toLowerCase()==='no.'){
+      // group header for a numbered list (e.g. "no. | 신규 명단- 추가")
+      items.push({kind:'listhead', title:bStr});
+    } else if(!isEmpty(a) && isEmpty(b) && isEmpty(c)){
+      if(typeof a === 'number'){
+        // a bare number with nothing else on the row -> a list-count value
+        // that was entered directly into the index column
+        items.push({kind:'row', idx:a, label:'', value:null});
+      } else {
+        const text = String(a);
+        if(text.length>14 || text.includes('=') || text.includes('*') || text.includes('+')){
+          items.push({kind:'formula', text});
+        } else {
+          items.push({kind:'section', text});
+        }
+      }
+    } else if(isEmpty(a) && !isEmpty(b) && isEmpty(c)){
+      items.push({kind:'section', text:bStr});
+    } else if(!isEmpty(a) && !isEmpty(b)){
+      // label-value row; value may legitimately be blank (e.g. unused pay item)
+      items.push({kind:'row', idx:a, label:bStr, value:c});
+    } else if(isEmpty(a) && !isEmpty(b) && !isEmpty(c)){
+      items.push({kind:'row', idx:'', label:bStr, value:c});
+    } else if(!isEmpty(a) && isEmpty(b) && !isEmpty(c)){
+      items.push({kind:'row', idx:a, label:'', value:c});
+    }
+  }
+
+  // derive a friendly display name
+  const rawTitle = String(titleText);
+  const firstSeg = rawTitle.split('_')[0].trim();
+  let displayName = firstSeg || rawTitle;
+  const siteMatch = rawTitle.match(/(반포|평촌|본점|잠실|목동|분당|일산|송파|수지)\s*$/);
+  if(siteMatch) displayName = firstSeg + ' (' + siteMatch[1] + ')';
+
+  return { type:'incentive', title:rawTitle, displayName, items };
+}
+
+/* ============================= RENDERING ============================= */
+function renderPayrollDoc(doc){
+  let payHtml = doc.payItems.map(p=>`<tr><td></td><td>${p.item||''}</td><td class="num">${fmtNum(p.amount)}</td><td></td><td></td></tr>`).join('');
+  let dedHtml = doc.deductionItems.map(d=>`<tr><td></td><td></td><td></td><td>${d.item||''}</td><td class="num">${fmtNum(d.amount)}</td></tr>`).join('');
+  // merge pay/deduction into aligned rows by max length
+  const maxLen = Math.max(doc.payItems.length, doc.deductionItems.length, 1);
+  let bodyRows = '';
+  for(let i=0;i<maxLen;i++){
+    const p = doc.payItems[i];
+    const d = doc.deductionItems[i];
+    bodyRows += `<tr>
+      <td>${i===0?'매월':''}</td>
+      <td>${p? (p.item||'') : ''}</td>
+      <td class="num">${p? fmtNum(p.amount) : ''}</td>
+      <td>${d? (d.item||'') : ''}</td>
+      <td class="num">${d? fmtNum(d.amount) : ''}</td>
+    </tr>`;
+  }
+
+  const calcRows = doc.calcRows.length ? doc.calcRows.map(c=>`<tr><td>${c.label||''}</td><td>${c.method||''}</td><td class="num">${fmtNum(c.amount)}</td></tr>`).join('')
+    : `<tr><td>&nbsp;</td><td></td><td></td></tr>`;
+
+  return `
+  <div class="page">
+    <div class="doc-title">${doc.title}</div>
+    <div class="doc-meta"><span><b>회사명 :</b>${doc.company}</span><span><b>지급일 :</b>${doc.payDate}</span></div>
+    <table class="info-table">
+      <tr><td class="lbl">성명</td><td>${doc.name}</td><td class="lbl">생년월일(사번)</td><td>${doc.birth} ${doc.empNo}</td></tr>
+      <tr><td class="lbl">부서</td><td>${doc.dept||''}</td><td class="lbl">직급</td><td>${doc.position||''}</td></tr>
+    </table>
+    <div class="unit-note">(단위, 원)</div>
+    <div class="sec-bar">세부내역</div>
+    <table class="grid">
+      <tr><th style="width:50px;">구분</th><th>지급 항목</th><th style="width:110px;">지급 금액</th><th>공제 항목</th><th style="width:110px;">공제 금액</th></tr>
+      ${bodyRows}
+      <tr class="subtotal"><td colspan="3"></td><td>공&nbsp;&nbsp;제&nbsp;&nbsp;액&nbsp;&nbsp;계</td><td class="num">${fmtNum(doc.dedTotal)}</td></tr>
+      <tr class="total"><td colspan="2">지&nbsp;&nbsp;급&nbsp;&nbsp;액&nbsp;&nbsp;계</td><td class="num">${fmtNum(doc.payTotal)}</td><td>실지급액</td><td class="num">${fmtNum(doc.netPay)}</td></tr>
+    </table>
+    <div class="unit-note">(단위, 원)</div>
+    <div class="sec-bar">계산방법</div>
+    <table class="grid">
+      <tr><th style="width:70px;">구분</th><th>산출식 또는 산출방법</th><th style="width:130px;">지급액</th></tr>
+      ${calcRows}
+    </table>
+    <div class="footer-note">귀하의 노고에 감사드립니다.</div>
+  </div>`;
+}
+
+function renderIncentiveDoc(doc){
+  let html = `<div class="inc-title">${doc.title}</div>`;
+  doc.items.forEach(it=>{
+    if(it.kind==='section'){
+      html += `<div class="inc-section">${it.text}</div>`;
+    } else if(it.kind==='formula'){
+      html += `<div class="inc-formula">${it.text}</div>`;
+    } else if(it.kind==='listhead'){
+      html += `<div class="inc-listhead"><div class="no">no.</div><div class="t">${it.title}</div></div>`;
+    } else if(it.kind==='row'){
+      const emphasis = /총급여|총액|최종|실지급/.test(it.label) ? ' emphasis' : '';
+      html += `<div class="inc-row${emphasis}"><div class="idx">${it.idx}</div><div class="lbl">${it.label}</div><div class="val">${fmtNum(it.value)}</div></div>`;
+    } else if(it.kind==='listitem'){
+      html += `<div class="inc-row"><div class="idx">${it.idx}</div><div class="lbl"></div><div class="val">${fmtNum(it.value)}</div></div>`;
+    }
+  });
+  return `<div class="page">${html}</div>`;
+}
+
+function renderReferenceDoc(ref){
+  const rows = ref.rows;
+  let maxCol = 0;
+  rows.forEach(r=>{ if(r) maxCol = Math.max(maxCol, r.length); });
+  let body = rows.map(r=>{
+    const cells = [];
+    for(let i=0;i<maxCol;i++){ cells.push(`<td>${isEmpty(r[i])?'':r[i]}</td>`); }
+    return `<tr>${cells.join('')}</tr>`;
+  }).join('');
+  return `<div class="page"><div class="doc-title" style="font-size:17px;">인센티브 계산식 / 명단 (참고자료)</div><table class="ref-table">${body}</table></div>`;
+}
+
+/* ============================= APP WIRING ============================= */
+const el = id => document.getElementById(id);
+
+function switchTab(tab){
+  state.activeTab = tab;
+  document.querySelectorAll('.tabbtn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  el('payrollPanel').style.display = tab==='payroll' ? 'block':'none';
+  el('incentivePanel').style.display = tab==='incentive' ? 'block':'none';
+  renderCurrentSelection();
+}
+document.querySelectorAll('.tabbtn').forEach(b=> b.addEventListener('click', ()=>switchTab(b.dataset.tab)));
+
+el('fmtPdf').addEventListener('click', ()=>{ state.format='pdf'; el('fmtPdf').classList.add('active'); el('fmtImg').classList.remove('active'); });
+el('fmtImg').addEventListener('click', ()=>{ state.format='img'; el('fmtImg').classList.add('active'); el('fmtPdf').classList.remove('active'); });
+
+el('payrollFile').addEventListener('change', async (ev)=>{
+  const f = ev.target.files[0]; if(!f) return;
+  el('payrollFileStatus').textContent = '불러오는 중...';
+  const buf = await f.arrayBuffer();
+  const wb = XLSX.read(buf, {type:'array', cellDates:false});
+  const docs = parsePayrollWorkbook(wb);
+  state.payroll.docs = docs;
+  state.payroll.fileName = f.name;
+  state.payroll.selected = docs.length? 0 : -1;
+  el('payrollFileStatus').textContent = `${f.name} · 직원 ${docs.length}명 인식`;
+  el('payrollFileStatus').classList.remove('empty');
+  renderPayrollList();
+  renderCurrentSelection();
+  saveToStorage();
+});
+
+el('incentiveFile').addEventListener('change', async (ev)=>{
+  const f = ev.target.files[0]; if(!f) return;
+  el('incentiveFileStatus').textContent = '불러오는 중...';
+  const buf = await f.arrayBuffer();
+  const wb = XLSX.read(buf, {type:'array', cellDates:false});
+  const {docs, reference} = parseIncentiveWorkbook(wb);
+  state.incentive.docs = docs;
+  state.incentive.reference = reference;
+  state.incentive.fileName = f.name;
+  state.incentive.selected = docs.length? 0 : -1;
+  el('incentiveFileStatus').textContent = `${f.name} · 직원 ${docs.length}명 인식`;
+  el('incentiveFileStatus').classList.remove('empty');
+  renderIncentiveList();
+  renderCurrentSelection();
+  saveToStorage();
+});
+
+function renderPayrollList(){
+  const wrap = el('payrollList');
+  if(!state.payroll.docs.length){ wrap.innerHTML = '<div class="empty-hint">엑셀을 업로드하면<br>직원별 명세서가 여기에 나타나요.</div>'; return; }
+  wrap.innerHTML = state.payroll.docs.map((d,i)=>`
+    <div class="doc-item ${state.payroll.selected===i && state.activeTab==='payroll' ? 'active':''}" data-idx="${i}">
+      <div class="doc-badge">${(d.displayName||'?').slice(0,1)}</div>
+      <div><div class="doc-name">${d.displayName}</div><div class="doc-sub">${d.title}</div></div>
+    </div>`).join('');
+  wrap.querySelectorAll('.doc-item').forEach(node=>{
+    node.addEventListener('click', ()=>{ state.payroll.selected = Number(node.dataset.idx); renderPayrollList(); renderCurrentSelection(); });
+  });
+}
+
+function renderIncentiveList(){
+  const wrap = el('incentiveList');
+  const items = [];
+  if(state.incentive.reference){
+    items.push(`<div class="ref-item ${state.incentive.selected===-2 && state.activeTab==='incentive' ?'active':''}" id="refItem">📎 인센티브 계산식 / 명단 <div class="doc-sub" style="color:#9C9174;">공통 참고자료</div></div>`);
+  }
+  wrap.innerHTML = items.join('') + (state.incentive.docs.length ? state.incentive.docs.map((d,i)=>`
+    <div class="doc-item ${state.incentive.selected===i && state.activeTab==='incentive' ? 'active':''}" data-idx="${i}" style="margin-top:${i===0?'12px':'0'}">
+      <div class="doc-badge">${(d.displayName||'?').slice(0,1)}</div>
+      <div><div class="doc-name">${d.displayName}</div><div class="doc-sub">${d.title}</div></div>
+    </div>`).join('') : '<div class="empty-hint">엑셀을 업로드하면<br>직원별 인센티브 내역이 여기에 나타나요.</div>');
+
+  const refNode = document.getElementById('refItem');
+  if(refNode) refNode.addEventListener('click', ()=>{ state.incentive.selected=-2; renderIncentiveList(); renderCurrentSelection(); });
+  wrap.querySelectorAll('.doc-item').forEach(node=>{
+    node.addEventListener('click', ()=>{ state.incentive.selected = Number(node.dataset.idx); renderIncentiveList(); renderCurrentSelection(); });
+  });
+}
+
+function currentDoc(){
+  if(state.activeTab==='payroll'){
+    if(state.payroll.selected<0) return null;
+    return { kind:'payroll', data: state.payroll.docs[state.payroll.selected] };
+  } else {
+    if(state.incentive.selected===-2) return { kind:'reference', data: state.incentive.reference };
+    if(state.incentive.selected<0) return null;
+    return { kind:'incentive', data: state.incentive.docs[state.incentive.selected] };
+  }
+}
+
+function renderCurrentSelection(){
+  const doc = currentDoc();
+  const area = el('canvasArea');
+  if(!doc){
+    area.classList.add('empty');
+    area.innerHTML = `<div class="placeholder"><div class="big">🗂️</div><h2>아직 표시할 문서가 없어요</h2><p>왼쪽 사이드바에서 급여명세서 또는 인센티브 엑셀 파일을 업로드하면, 직원별 문서를 이 화면에서 확인하고 PDF나 이미지로 내려받을 수 있어요.</p></div>`;
+    el('docHeading').textContent = '문서를 선택해주세요';
+    el('docSub').textContent = '왼쪽에서 엑셀을 업로드하고 직원을 선택하세요';
+    el('btnDownloadOne').disabled = true;
+    el('btnDownloadAll').disabled = true;
+    return;
+  }
+  area.classList.remove('empty');
+  let html='';
+  if(doc.kind==='payroll') html = renderPayrollDoc(doc.data);
+  else if(doc.kind==='incentive') html = renderIncentiveDoc(doc.data);
+  else html = renderReferenceDoc(doc.data);
+  area.innerHTML = `<div class="page-wrap" id="pageWrap">${html}</div>`;
+
+  el('docHeading').textContent = doc.data.displayName || (doc.kind==='reference' ? '인센티브 계산식 / 명단' : '문서');
+  el('docSub').textContent = doc.kind==='reference' ? '공통 참고자료' : doc.data.title;
+  el('btnDownloadOne').disabled = false;
+  const hasList = state.activeTab==='payroll' ? state.payroll.docs.length>0 : state.incentive.docs.length>0;
+  el('btnDownloadAll').disabled = !hasList;
+}
+
+/* ============================= EXPORT ============================= */
+async function elementToCanvas(node){
+  return await html2canvas(node, {scale:2, backgroundColor:'#ffffff'});
+}
+async function downloadNodeAsPdf(node, filename){
+  const canvas = await elementToCanvas(node);
+  const imgData = canvas.toDataURL('image/jpeg', 0.95);
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ unit:'pt', format:'a4' });
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const ratio = Math.min(pageW/canvas.width, pageH/canvas.height);
+  const w = canvas.width*ratio, h = canvas.height*ratio;
+  pdf.addImage(imgData, 'JPEG', (pageW-w)/2, 24, w, h);
+  pdf.save(filename+'.pdf');
+}
+async function downloadNodeAsImg(node, filename){
+  const canvas = await elementToCanvas(node);
+  const link = document.createElement('a');
+  link.download = filename+'.jpg';
+  link.href = canvas.toDataURL('image/jpeg', 0.95);
+  link.click();
+}
+async function nodeToBlob(node, format){
+  const canvas = await elementToCanvas(node);
+  if(format==='img'){
+    return await new Promise(res=> canvas.toBlob(b=>res(b), 'image/jpeg', 0.95));
+  } else {
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit:'pt', format:'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const ratio = Math.min(pageW/canvas.width, pageH/canvas.height);
+    const w = canvas.width*ratio, h = canvas.height*ratio;
+    pdf.addImage(imgData, 'JPEG', (pageW-w)/2, 24, w, h);
+    return pdf.output('blob');
+  }
+}
+
+el('btnDownloadOne').addEventListener('click', async ()=>{
+  const doc = currentDoc(); if(!doc) return;
+  const node = document.querySelector('#pageWrap .page');
+  const btn = el('btnDownloadOne'); const old = btn.textContent;
+  btn.textContent='생성 중...'; btn.disabled=true;
+  const name = (doc.data.displayName||'문서').replace(/[\\/:*?"<>|]/g,'');
+  try{
+    if(state.format==='pdf') await downloadNodeAsPdf(node, name);
+    else await downloadNodeAsImg(node, name);
+  } finally { btn.textContent=old; btn.disabled=false; }
+});
+
+el('btnDownloadAll').addEventListener('click', async ()=>{
+  const btn = el('btnDownloadAll'); const old = btn.textContent;
+  const zip = new JSZip();
+  const list = state.activeTab==='payroll' ? state.payroll.docs : state.incentive.docs;
+  const renderFn = state.activeTab==='payroll' ? renderPayrollDoc : renderIncentiveDoc;
+  const ext = state.format==='pdf' ? 'pdf' : 'jpg';
+
+  // offscreen render container
+  const hidden = document.createElement('div');
+  hidden.style.position='fixed'; hidden.style.left='-9999px'; hidden.style.top='0';
+  document.body.appendChild(hidden);
+
+  for(let i=0;i<list.length;i++){
+    btn.textContent = `생성 중... (${i+1}/${list.length})`;
+    btn.disabled = true;
+    hidden.innerHTML = renderFn(list[i]);
+    const node = hidden.querySelector('.page');
+    const blob = await nodeToBlob(node, state.format);
+    const name = (list[i].displayName||('문서'+i)).replace(/[\\/:*?"<>|]/g,'');
+    zip.file(`${name}.${ext}`, blob);
+  }
+  document.body.removeChild(hidden);
+
+  btn.textContent = '압축 중...';
+  const content = await zip.generateAsync({type:'blob'});
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(content);
+  const tabLabel = state.activeTab==='payroll' ? '급여명세서' : '인센티브내역';
+  link.download = `제이드에듀_${tabLabel}_전체.zip`;
+  link.click();
+  btn.textContent = old; btn.disabled=false;
+});
+
+/* ============================= PERSISTENCE ============================= */
+async function saveToStorage(){
+  try{
+    if(window.storage){
+      await window.storage.set('payroll-data', JSON.stringify({docs:state.payroll.docs, fileName:state.payroll.fileName}), false);
+      await window.storage.set('incentive-data', JSON.stringify({docs:state.incentive.docs, reference:state.incentive.reference, fileName:state.incentive.fileName}), false);
+    }
+  }catch(e){ console.warn('storage save failed', e); }
+}
+async function loadFromStorage(){
+  try{
+    if(!window.storage) return;
+    try{
+      const p = await window.storage.get('payroll-data');
+      if(p && p.value){
+        const parsed = JSON.parse(p.value);
+        state.payroll.docs = parsed.docs||[];
+        state.payroll.fileName = parsed.fileName||'';
+        state.payroll.selected = state.payroll.docs.length?0:-1;
+        if(state.payroll.fileName){
+          el('payrollFileStatus').textContent = `${state.payroll.fileName} · 직원 ${state.payroll.docs.length}명 인식 (저장됨)`;
+          el('payrollFileStatus').classList.remove('empty');
+        }
+      }
+    }catch(e){}
+    try{
+      const i = await window.storage.get('incentive-data');
+      if(i && i.value){
+        const parsed = JSON.parse(i.value);
+        state.incentive.docs = parsed.docs||[];
+        state.incentive.reference = parsed.reference||null;
+        state.incentive.fileName = parsed.fileName||'';
+        state.incentive.selected = state.incentive.docs.length?0:-1;
+        if(state.incentive.fileName){
+          el('incentiveFileStatus').textContent = `${state.incentive.fileName} · 직원 ${state.incentive.docs.length}명 인식 (저장됨)`;
+          el('incentiveFileStatus').classList.remove('empty');
+        }
+      }
+    }catch(e){}
+    renderPayrollList();
+    renderIncentiveList();
+    renderCurrentSelection();
+  }catch(e){ console.warn('storage load failed', e); }
+}
+
+loadFromStorage();
+</script>
+</body>
+</html>
