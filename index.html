@@ -5,27 +5,29 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>급여·인센티브 문서 생성기</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&family=Source+Serif+4:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root{
-    --paper:#FAF7F0;
+    --paper:#F4F6FA;
     --panel:#FFFFFF;
-    --ink:#232323;
-    --ink-soft:#6B6558;
-    --line:#DCD5C4;
-    --line-strong:#B9AF97;
-    --brass:#B8892B;
-    --brass-soft:#F3E3BE;
-    --stamp:#8E2F2F;
-    --stamp-soft:#F4DCDC;
-    --sidebar:#211D18;
-    --sidebar-soft:#3A342A;
-    --sidebar-text:#EDE7D9;
-    --shadow: 0 18px 40px -20px rgba(30,25,10,0.35);
+    --ink:#1E2433;
+    --ink-soft:#6B7280;
+    --line:#E4E8F0;
+    --line-strong:#C7CFDD;
+    --brass:#2946A8;
+    --brass-soft:#E8EDFC;
+    --stamp:#1F3A93;
+    --stamp-soft:#EEF2FF;
+    --sidebar:#101728;
+    --sidebar-soft:#16213E;
+    --sidebar-text:#E7EAF3;
+    --navy-deep:#16213E;
+    --navy:#1F3A93;
+    --shadow: 0 18px 40px -20px rgba(20,30,60,0.35);
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -46,8 +48,8 @@
     padding:28px 20px 20px;
   }
   .brand{
-    font-family:'Source Serif 4', serif;
-    font-size:20px; font-weight:700;
+    font-family:'Noto Sans KR', sans-serif;
+    font-size:20px; font-weight:800;
     letter-spacing:0.02em;
     display:flex; align-items:baseline; gap:8px;
     margin-bottom:2px;
@@ -55,56 +57,56 @@
   .brand small{
     font-family:'Noto Sans KR',sans-serif;
     font-size:11px; font-weight:500;
-    color:#B8AC8C;
+    color:#8B93AC;
     letter-spacing:0.06em;
   }
-  .brand-rule{ height:1px; background:rgba(237,231,217,0.18); margin:16px 0 18px; }
+  .brand-rule{ height:1px; background:rgba(231,234,243,0.14); margin:16px 0 18px; }
 
-  .tabbar{ display:flex; gap:6px; margin-bottom:20px; background:rgba(0,0,0,0.18); padding:4px; border-radius:10px; }
+  .tabbar{ display:flex; gap:6px; margin-bottom:20px; background:rgba(0,0,0,0.22); padding:4px; border-radius:10px; }
   .tabbtn{
     flex:1; text-align:center; padding:9px 6px; border-radius:7px; cursor:pointer;
-    font-size:13px; font-weight:600; color:#C9BFA5; transition:all .18s ease; user-select:none;
+    font-size:13px; font-weight:600; color:#8B93AC; transition:all .18s ease; user-select:none;
     border:none; background:transparent; font-family:inherit;
   }
-  .tabbtn.active{ background:var(--brass); color:#241C08; box-shadow:0 4px 12px rgba(0,0,0,0.3); }
+  .tabbtn.active{ background:var(--brass); color:#fff; box-shadow:0 4px 12px rgba(0,0,0,0.3); }
 
   .upload-box{
-    border:1.5px dashed rgba(237,231,217,0.35); border-radius:12px; padding:16px;
+    border:1.5px dashed rgba(231,234,243,0.25); border-radius:12px; padding:16px;
     margin-bottom:18px; text-align:center;
   }
-  .upload-box p{ font-size:12px; color:#B8AC8C; margin:0 0 10px; line-height:1.55; }
+  .upload-box p{ font-size:12px; color:#8B93AC; margin:0 0 10px; line-height:1.55; }
   .upload-btn{
-    display:inline-block; background:var(--brass); color:#241C08; font-weight:700; font-size:13px;
+    display:inline-block; background:var(--brass); color:#fff; font-weight:700; font-size:13px;
     padding:9px 16px; border-radius:8px; cursor:pointer; border:none; font-family:inherit;
   }
-  .upload-btn:hover{ filter:brightness(1.08); }
+  .upload-btn:hover{ filter:brightness(1.1); }
   .file-input{ display:none; }
-  .file-status{ font-size:11.5px; color:#9BE8B4; margin-top:8px; word-break:break-all; }
-  .file-status.empty{ color:#8A8064; }
+  .file-status{ font-size:11.5px; color:#7DD3AE; margin-top:8px; word-break:break-all; }
+  .file-status.empty{ color:#6B7390; }
 
-  .list-label{ font-size:11px; letter-spacing:0.08em; color:#8A8064; margin:6px 2px 8px; text-transform:uppercase; font-weight:700; }
+  .list-label{ font-size:11px; letter-spacing:0.08em; color:#6B7390; margin:6px 2px 8px; text-transform:uppercase; font-weight:700; }
   .doc-list{ flex:1; overflow-y:auto; margin:0 -6px; padding:0 6px; }
   .doc-item{
     display:flex; align-items:center; gap:10px; padding:10px 10px; border-radius:9px; cursor:pointer;
     margin-bottom:3px; transition:background .15s ease;
   }
-  .doc-item:hover{ background:rgba(237,231,217,0.08); }
-  .doc-item.active{ background:rgba(184,137,43,0.22); }
+  .doc-item:hover{ background:rgba(231,234,243,0.07); }
+  .doc-item.active{ background:rgba(41,70,168,0.35); }
   .doc-badge{
-    width:28px; height:28px; border-radius:7px; background:rgba(237,231,217,0.1); color:#D8CDAE;
+    width:28px; height:28px; border-radius:7px; background:rgba(231,234,243,0.1); color:#C7CFDD;
     display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0;
   }
-  .doc-item.active .doc-badge{ background:var(--brass); color:#241C08; }
-  .doc-name{ font-size:13.5px; font-weight:600; color:#EDE7D9; }
-  .doc-sub{ font-size:11px; color:#9C9174; margin-top:1px; }
+  .doc-item.active .doc-badge{ background:var(--brass); color:#fff; }
+  .doc-name{ font-size:13.5px; font-weight:600; color:#E7EAF3; }
+  .doc-sub{ font-size:11px; color:#7A82A0; margin-top:1px; }
 
   .ref-item{
-    margin-top:10px; padding:10px 12px; border-radius:9px; cursor:pointer; border:1px solid rgba(237,231,217,0.15);
+    margin-top:10px; padding:10px 12px; border-radius:9px; cursor:pointer; border:1px solid rgba(231,234,243,0.14);
   }
-  .ref-item:hover, .ref-item.active{ background:rgba(237,231,217,0.08); }
+  .ref-item:hover, .ref-item.active{ background:rgba(231,234,243,0.07); }
   .ref-item .doc-name{ font-size:12.5px; }
 
-  .empty-hint{ font-size:12px; color:#8A8064; text-align:center; padding:30px 10px; line-height:1.7; }
+  .empty-hint{ font-size:12px; color:#6B7390; text-align:center; padding:30px 10px; line-height:1.7; }
 
   /* ---------- MAIN ---------- */
   .main{ flex:1; display:flex; flex-direction:column; min-width:0; }
@@ -127,8 +129,8 @@
     border:none; border-radius:8px; padding:9px 16px; font-size:13px; font-weight:700; cursor:pointer;
     font-family:inherit; display:inline-flex; align-items:center; gap:6px;
   }
-  .btn-primary{ background:var(--brass); color:#241C08; }
-  .btn-primary:hover{ filter:brightness(1.06); }
+  .btn-primary{ background:var(--brass); color:#fff; }
+  .btn-primary:hover{ filter:brightness(1.08); }
   .btn-ghost{ background:transparent; color:var(--ink); border:1px solid var(--line-strong); }
   .btn-ghost:hover{ background:var(--brass-soft); }
   .btn:disabled{ opacity:0.4; cursor:not-allowed; }
@@ -142,50 +144,59 @@
   .placeholder p{ font-size:13px; line-height:1.7; margin:0; }
 
   /* ---------- DOCUMENT PAGE (payslip look) ---------- */
-  .page-wrap{ box-shadow:var(--shadow); }
+  .page-wrap{ box-shadow:var(--shadow); border-radius:14px; }
   .page{
-    width:760px; background:#fff; padding:44px 46px 38px;
-    font-family:'Noto Sans KR', sans-serif; color:#1a1a1a;
+    width:720px; background:#fff; padding:0;
+    font-family:'Noto Sans KR', sans-serif; color:var(--ink);
+    border-radius:14px; overflow:hidden;
   }
-  .doc-title{ text-align:center; font-size:21px; font-weight:900; letter-spacing:0.01em; margin-bottom:20px; }
-  .doc-meta{ display:flex; justify-content:space-between; font-size:13px; margin-bottom:2px; padding:2px 2px; }
-  .doc-meta b{ font-weight:700; margin-right:6px; }
-  .info-table{ width:100%; border-collapse:collapse; margin:10px 0 4px; font-size:13px; }
-  .info-table td{ border:1px solid #333; padding:6px 10px; }
-  .info-table td.lbl{ background:#F2EFE6; font-weight:700; width:110px; }
-  .unit-note{ text-align:right; font-size:11.5px; color:#555; margin:4px 2px 8px; }
+  .doc-hero{
+    background:linear-gradient(135deg, var(--navy-deep), var(--navy));
+    color:#fff; padding:28px 38px 22px;
+  }
+  .doc-title{ font-size:19px; font-weight:700; margin:0; letter-spacing:0.01em; }
+  .doc-hero .doc-sub{ font-size:12px; opacity:0.75; margin-top:5px; }
+  .doc-body{ padding:26px 38px 32px; }
 
-  .sec-bar{ background:#2b2b2b; color:#fff; text-align:center; font-weight:700; font-size:13px; padding:6px; }
-  table.grid{ width:100%; border-collapse:collapse; font-size:12.5px; }
-  table.grid th{ border:1px solid #333; background:#EFEAD9; padding:6px 8px; font-weight:700; }
-  table.grid td{ border:1px solid #333; padding:5px 8px; }
+  .doc-meta{ display:flex; justify-content:space-between; font-size:12px; opacity:0.8; margin-top:4px; }
+  .info-table{ width:100%; border-collapse:collapse; margin:0 0 16px; font-size:12.5px; }
+  .info-table td{ border:none; border-bottom:1px solid var(--line); padding:8px 4px; }
+  .info-table td.lbl{ color:var(--ink-soft); font-weight:600; width:110px; }
+  .unit-note{ text-align:right; font-size:11px; color:var(--ink-soft); margin:2px 2px 6px; }
+
+  .sec-bar{ color:var(--navy); font-weight:700; font-size:12px; padding:12px 2px 7px; border-bottom:2px solid var(--navy); margin-bottom:2px; }
+  table.grid{ width:100%; border-collapse:collapse; font-size:12px; margin-bottom:4px; }
+  table.grid th{ border:none; border-bottom:1.5px solid var(--ink); background:transparent; padding:8px 8px; font-weight:700; font-size:11px; color:var(--ink-soft); text-align:left; }
+  table.grid td{ border:none; border-bottom:1px solid var(--line); padding:7px 8px; }
   table.grid td.num{ text-align:right; font-variant-numeric:tabular-nums; }
-  table.grid tr.total td{ background:var(--stamp-soft); font-weight:800; }
-  table.grid tr.subtotal td{ background:#F2EFE6; font-weight:700; }
+  table.grid tr.total td{ background:var(--stamp-soft); font-weight:800; color:var(--navy); border-bottom:none; }
+  table.grid tr.subtotal td{ font-weight:700; color:var(--ink-soft); }
 
-  .footer-note{ text-align:center; font-size:12px; color:#444; margin-top:22px; }
+  .footer-note{ text-align:center; font-size:11px; color:#9AA3B5; margin-top:20px; }
 
   /* incentive doc styles */
-  .inc-title{ background:var(--brass-soft); border:1px solid #333; padding:7px 10px; font-weight:800; font-size:13.5px; margin-bottom:0; }
-  .inc-row{ display:flex; border:1px solid #333; border-top:none; font-size:12.5px; }
-  .inc-row .idx{ width:34px; background:var(--brass-soft); display:flex; align-items:center; justify-content:center; font-weight:700; border-right:1px solid #333; padding:5px 0; }
-  .inc-row .lbl{ flex:1; padding:5px 10px; display:flex; align-items:center; }
-  .inc-row .val{ width:180px; text-align:right; padding:5px 12px; display:flex; align-items:center; justify-content:flex-end; font-variant-numeric:tabular-nums; border-left:1px solid #333; }
-  .inc-row.emphasis{ background:var(--stamp-soft); font-weight:800; }
-  .inc-section{ background:#3a3a3a; color:#fff; font-weight:700; text-align:center; padding:6px; font-size:12.5px; border:1px solid #333; border-top:none; }
-  .inc-formula{ font-size:11.5px; color:#555; padding:5px 4px; border:1px solid #333; border-top:none; font-style:italic; }
-  .inc-listhead{ background:var(--brass-soft); font-weight:700; display:flex; border:1px solid #333; border-top:none; font-size:12.5px; }
-  .inc-listhead .no{ width:34px; text-align:center; padding:5px 0; border-right:1px solid #333; }
-  .inc-listhead .t{ flex:1; padding:5px 10px; }
+  .inc-title{ background:linear-gradient(135deg, var(--navy-deep), var(--navy)); color:#fff; padding:16px 20px; font-weight:700; font-size:14px; margin:-1px -1px 0; border-radius:14px 14px 0 0; }
+  .inc-body{ padding:20px 22px 26px; }
+  .inc-row{ display:flex; border:none; border-bottom:1px solid var(--line); font-size:12.5px; }
+  .inc-row .idx{ width:30px; color:#9AA3B5; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:11px; padding:7px 0; }
+  .inc-row .lbl{ flex:1; padding:7px 6px; display:flex; align-items:center; }
+  .inc-row .val{ width:170px; text-align:right; padding:7px 6px; display:flex; align-items:center; justify-content:flex-end; font-variant-numeric:tabular-nums; }
+  .inc-row.emphasis{ background:var(--stamp-soft); font-weight:800; color:var(--navy); border-radius:8px; border-bottom:none; }
+  .inc-section{ color:var(--navy); font-weight:700; padding:14px 4px 6px; font-size:11.5px; border-bottom:2px solid var(--navy); margin-bottom:2px; }
+  .inc-formula{ font-size:11px; color:var(--ink-soft); padding:6px 4px; font-style:italic; }
+  .inc-listhead{ background:var(--brass-soft); font-weight:700; display:flex; border-radius:8px; margin-top:8px; font-size:11.5px; color:var(--navy); }
+  .inc-listhead .no{ width:30px; text-align:center; padding:7px 0; opacity:0.6; font-size:10.5px; }
+  .inc-listhead .t{ flex:1; padding:7px 8px; }
   .inc-blockgap{ height:14px; }
 
   .ref-table{ width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:16px; }
-  .ref-table td, .ref-table th{ border:1px solid #999; padding:4px 7px; }
-  .ref-table th{ background:#EFEAD9; }
+  .ref-table td, .ref-table th{ border:1px solid var(--line); padding:5px 8px; }
+  .ref-table th{ background:var(--brass-soft); color:var(--navy); }
 
   @media (max-width:900px){
     .sidebar{ display:none; }
-    .page{ width:100%; padding:26px 18px; }
+    .page{ width:100%; }
+    .doc-hero, .doc-body, .inc-body{ padding-left:20px; padding-right:20px; }
     .toolbar{ padding:14px 18px; flex-wrap:wrap; }
   }
 </style>
@@ -194,7 +205,7 @@
 <div id="app">
 
   <aside class="sidebar">
-    <div class="brand">제이드에듀 <small>DOC STUDIO</small></div>
+    <div class="brand">JP <small>DOC STUDIO</small></div>
     <div style="font-size:11px;color:#8A8064;">급여·인센티브 문서 생성기</div>
     <div class="brand-rule"></div>
 
@@ -536,13 +547,15 @@ function renderPayrollDoc(doc){
 
   return `
   <div class="page">
-    <div class="doc-title">${doc.title}</div>
-    <div class="doc-meta"><span><b>회사명 :</b>${doc.company}</span><span><b>지급일 :</b>${doc.payDate}</span></div>
+    <div class="doc-hero">
+      <div class="doc-title">${doc.title}</div>
+      <div class="doc-sub">${doc.company} · 지급일 ${doc.payDate}</div>
+    </div>
+    <div class="doc-body">
     <table class="info-table">
       <tr><td class="lbl">성명</td><td>${doc.name}</td><td class="lbl">생년월일(사번)</td><td>${doc.birth} ${doc.empNo}</td></tr>
       <tr><td class="lbl">부서</td><td>${doc.dept||''}</td><td class="lbl">직급</td><td>${doc.position||''}</td></tr>
     </table>
-    <div class="unit-note">(단위, 원)</div>
     <div class="sec-bar">세부내역</div>
     <table class="grid">
       <tr><th style="width:50px;">구분</th><th>지급 항목</th><th style="width:110px;">지급 금액</th><th>공제 항목</th><th style="width:110px;">공제 금액</th></tr>
@@ -557,11 +570,12 @@ function renderPayrollDoc(doc){
       ${calcRows}
     </table>
     <div class="footer-note">귀하의 노고에 감사드립니다.</div>
+    </div>
   </div>`;
 }
 
 function renderIncentiveDoc(doc){
-  let html = `<div class="inc-title">${doc.title}</div>`;
+  let html = `<div class="inc-title">${doc.title}</div><div class="inc-body">`;
   doc.items.forEach(it=>{
     if(it.kind==='section'){
       html += `<div class="inc-section">${it.text}</div>`;
@@ -576,6 +590,7 @@ function renderIncentiveDoc(doc){
       html += `<div class="inc-row"><div class="idx">${it.idx}</div><div class="lbl"></div><div class="val">${fmtNum(it.value)}</div></div>`;
     }
   });
+  html += `</div>`;
   return `<div class="page">${html}</div>`;
 }
 
@@ -588,7 +603,7 @@ function renderReferenceDoc(ref){
     for(let i=0;i<maxCol;i++){ cells.push(`<td>${isEmpty(r[i])?'':r[i]}</td>`); }
     return `<tr>${cells.join('')}</tr>`;
   }).join('');
-  return `<div class="page"><div class="doc-title" style="font-size:17px;">인센티브 계산식 / 명단 (참고자료)</div><table class="ref-table">${body}</table></div>`;
+  return `<div class="page"><div class="inc-title" style="border-radius:14px 14px 0 0;">인센티브 계산식 / 명단 (참고자료)</div><div class="inc-body"><table class="ref-table">${body}</table></div></div>`;
 }
 
 /* ============================= APP WIRING ============================= */
@@ -788,7 +803,7 @@ el('btnDownloadAll').addEventListener('click', async ()=>{
   const link = document.createElement('a');
   link.href = URL.createObjectURL(content);
   const tabLabel = state.activeTab==='payroll' ? '급여명세서' : '인센티브내역';
-  link.download = `제이드에듀_${tabLabel}_전체.zip`;
+  link.download = `JP_${tabLabel}_전체.zip`;
   link.click();
   btn.textContent = old; btn.disabled=false;
 });
