@@ -857,5 +857,36 @@ async function loadFromStorage(){
 
 loadFromStorage();
 </script>
+<!-- 로그인: JP ONE과 같은 로그인을 씀(같은 사이트 주소라 JP ONE에 로그인돼 있으면 바로 열림). 대표만 -->
+<style>
+#jpGate{position:fixed;inset:0;z-index:9999;background:#F5F5F5;display:flex;align-items:center;justify-content:center;padding:16px;font-family:'Pretendard',-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif}
+#jpGate[hidden]{display:none}
+#jpGate .box{background:#fff;border:1px solid #EEEEEE;border-radius:8px;padding:28px 24px;max-width:380px;width:100%;text-align:center;display:grid;gap:12px}
+#jpGate h1{font-size:20px;font-weight:800;color:#222;margin:0}
+#jpGate p{margin:0;font-size:14px;line-height:1.6;color:#4E4E4E}
+#jpGate button{font:inherit;font-size:14px;font-weight:600;border:0;border-radius:6px;padding:10px 16px;background:#DE8619;color:#fff;cursor:pointer}
+#jpGate .err{color:#C62828;font-size:13px}
+</style>
+<div id="jpGate"><div class="box"><h1>JP DOC STUDIO</h1>
+  <p id="jpGateMsg">로그인 확인 중…</p>
+  <button type="button" id="jpGateBtn" hidden>구글로 로그인</button>
+  <p class="err" id="jpGateErr"></p></div></div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+// JP ONE(jarada-jpone)과 같은 설정 — 같은 주소(cooldesign81.github.io)라 JP ONE 로그인이 그대로 이어짐
+const app = initializeApp({ apiKey:"AIzaSyCqcuYGMUS_CxhqpHspqVK3ZPUXJMDFX9s", authDomain:"jarada-jpone.firebaseapp.com", projectId:"jarada-jpone",
+  storageBucket:"jarada-jpone.firebasestorage.app", messagingSenderId:"383071680316", appId:"1:383071680316:web:3f30f33a2aa267b3f89039" });
+const auth = getAuth(app), ALLOW = ["jinhyuck@gmail.com"];
+const $ = id => document.getElementById(id);
+$("jpGateBtn").onclick = async () => { $("jpGateErr").textContent = "";
+  try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch (e) { if (e.code !== "auth/popup-closed-by-user") $("jpGateErr").textContent = "로그인하지 못했어요."; } };
+onAuthStateChanged(auth, async u => {
+  const ok = u && u.emailVerified && ALLOW.includes((u.email || "").toLowerCase());
+  if (ok) { $("jpGate").hidden = true; return; }
+  if (u) $("jpGateErr").textContent = `${u.email} 계정은 쓸 수 없어요. 대표 전용이에요.`;   // JP ONE 로그인은 그대로 둠
+  $("jpGateMsg").textContent = "JP ONE 대표 계정(구글)으로 들어와요."; $("jpGateBtn").hidden = false;
+});
+</script>
 </body>
 </html>
